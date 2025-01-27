@@ -1,0 +1,76 @@
+/* CSS is how you can add style to your website, such as colors, fonts, and positioning of your
+   HTML content. To learn how to do something, just try searching Google for questions like
+   "how to change link color." */
+
+body {
+  background-color: white;
+  color: black;
+  font-family: "Comic Sans MS";
+
+}
+
+p {
+  text-align: justify;
+
+}
+
+.lectern {
+  font-size: 24px
+}
+
+.render {
+  display: grid;
+  gap: 50px;
+}
+
+
+.subscript {
+ font-size: 10px 
+}
+
+.blink {
+  animation: blinker 1s linear infinite;
+  color: red;
+  font-size: 10px
+}
+
+@keyframes blinker {
+  50% {
+    opacity: 0;
+  }
+}
+.collapsible {
+  background: rgba(255, 255, 255, 0.5);
+  color: #444;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  border: Solid;
+  text-align: left;
+  outline: inset;
+  font-size: 15px;
+  transition: 0.4s;
+  font-family: "Comic Sans MS";
+}
+
+.active, .collapsible:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.content {
+  max-height: 0;
+  display: none;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+  padding: 0 18px;
+/*  background-color: #f1f1f1;*/
+  background: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  border: solid;
+  border-width: thin;  
+}
+
+.active + .content {
+  display: block;
+  max-height: 500px; /* Set a maximum height for the collapsible content */
+}
