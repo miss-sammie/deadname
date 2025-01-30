@@ -12,12 +12,34 @@
   <body>
 
 
-    <button type="button" class="collapsible"><b><a href="/index.html">Go Home</a></b></button>
+    <button type="button" class="collapsible"><b>Instructions, or <a href="/index.html">Go Home</a> </b></button>
+    <div class="content">
+      <p>Use your number keys to change the text:</p>
+      <ul>
+        <li>Click to place text</li>
+        <li>Press 1 to change text box size</li>
+        <li>Press 2 to change font size</li>
+        <li>Press 3 to change color</li>
+        <li>Press 4 to change auto-placement speed</li>
+        <li>Press 5 to toggle between mouse/random placement</li>
+        <li>Press 6 to randomize all settings</li>
+      </ul>
+    </div>
 
-    <!-- Add the content div here, before the script -->
-    <div id="content" style="display:none"></div>
+    <div id="text-content"style="display:none"></div>
+
 
     <script>
+      // Add this at the beginning of your script section
+      document.querySelector(".collapsible").addEventListener("click", function(e) {
+        this.classList.toggle("active");
+        var content = this.nextElementSibling;
+        if (content.style.display === "block") {
+          content.style.display = "none";
+        } else {
+          content.style.display = "block";
+        }
+      });
 
       
     
@@ -170,9 +192,8 @@
 
 
 
-    // Wait for DOM to be fully loaded
     window.addEventListener('load', function() {
-      const contentDiv = document.getElementById('content');
+      const contentDiv = document.getElementById('text-content');
       
       if (contentDiv) {
         fetch('index.html')
