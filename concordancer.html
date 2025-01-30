@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concordancer</title>
+    <link href="/style.css" rel="stylesheet" type="text/css" media="all">
+  </head>
+  <body>
+    <button type="button" class="collapsible"><b><a href="/index.html">Go Home</a></b></button>
+    
+    <input 
+      type="text" 
+      id="searchInput" 
+      placeholder="Type to search..."
+      style="width: 80%; padding: 10px; margin: 20px auto; display: block;"
+    >
+    <div id="results" style="height: calc(100vh - 120px); width: 90%; margin: 0 auto; padding: 20px;"></div>
+    <div id="content" style="display:none"></div>
+
+    <script>
+    let fullText = '';
+    let paragraphsArray = [];
+
+    // Load content when page loads
+    window.addEventListener('load', function() {
+      fetch('index.html')
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById('content').innerHTML = html;
+          var paragraphs = document.querySelectorAll('#content p');
+          paragraphsArray = Array.from(paragraphs);
+          fullText = paragraphsArray.map(p => p.textContent).join(' ');
+        });
+    });
+
+    function findWithContext(searchTerm, contextLength = 150) {
+      if (!searchTerm) return [];
+      
+      let results = [];
+      let searchTermLower = searchTerm.toLowerCase();
+      let textLower = fullText.toLowerCase();
+      let lastIndex = 0;
+      
+      while (true) {
+        let index = textLower.indexOf(searchTermLower, lastIndex);
+        if (index === -1) break;
+        
+        let start = Math.max(0, index - contextLength);
+        let end = Math.min(fullText.length, index + searchTerm.length + contextLength);
+        
+        let before = fullText.substring(start, index);
+        let term = fullText.substring(index, index + searchTerm.length);
+        let after = fullText.substring(index + searchTerm.length, end);
+        
+        results.push({ before, term, after });
+        lastIndex = index + 1;
+      }
+      
+      return results;
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+      let searchTerm = e.target.value;
+      let results = findWithContext(searchTerm);
+      
+      let resultsDiv = document.getElementById('results');
+      if (results.length > 0) {
+        resultsDiv.innerHTML = results.map(result => 
+          `<div style="display: flex; margin-bottom: 10px; background: #f5f5f5; padding: 10px; align-items: center;">
+            <div style="
+              flex: 1; 
+              text-align: right; 
+              padding-right: 20px; 
+              overflow: hidden; 
+              white-space: nowrap;
+              direction: rtl;
+            ">${result.before}</div>
+            <div style="
+              background: pink; 
+              padding: 0 10px;
+              flex-shrink: 0;
+              min-width: max-content;
+            ">${result.term}</div>
+            <div style="
+              flex: 1; 
+              text-align: left; 
+              padding-left: 20px; 
+              overflow: hidden; 
+              white-space: nowrap;
+            ">${result.after}</div>
+          </div>`
+        ).join('');
+      } else {
+        resultsDiv.innerHTML = searchTerm ? 
+          '<div style="padding: 10px;">No matches found</div>' : 
+          '';
+      }
+    });
+    </script>
+  </body>
+</html>
