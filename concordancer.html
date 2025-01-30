@@ -9,6 +9,7 @@
   <body>
     <button type="button" class="collapsible"><b><a href="/index.html">Go Home</a></b></button>
     
+
     <input 
       type="text" 
       id="searchInput" 
@@ -28,9 +29,21 @@
         .then(response => response.text())
         .then(html => {
           document.getElementById('content').innerHTML = html;
-          var paragraphs = document.querySelectorAll('#content p');
-          paragraphsArray = Array.from(paragraphs);
-          fullText = paragraphsArray.map(p => p.textContent).join(' ');
+          
+          // Get only paragraphs and elements with class='subscript'
+          let contentDiv = document.getElementById('content');
+          let elements = contentDiv.querySelectorAll("p, [class='subscript']");
+          
+          // Combine their text content
+          fullText = Array.from(elements).map(el => el.textContent).join(' ');
+          
+          // Get all subscript dates for reference
+          let subscriptDates = Array.from(document.querySelectorAll("[class='subscript']")).map(el => ({
+            position: fullText.indexOf(el.textContent),
+            date: el.textContent
+          }));
+
+          console.log(subscriptDates);  // For debugging
         });
     });
 
@@ -42,9 +55,22 @@
       let textLower = fullText.toLowerCase();
       let lastIndex = 0;
       
+      // Get all subscript dates for reference
+      let subscriptDates = Array.from(document.querySelectorAll('.subscript')).map(el => ({
+        position: fullText.indexOf(el.textContent),
+        date: el.textContent
+      }));
+
+      console.log(subscriptDates);
+      
       while (true) {
         let index = textLower.indexOf(searchTermLower, lastIndex);
         if (index === -1) break;
+        
+        // Find the most recent date before this match
+        let nearestDate = subscriptDates
+          .filter(d => d.position < index)
+          .sort((a, b) => b.position - a.position)[0]?.date || '';
         
         let start = Math.max(0, index - contextLength);
         let end = Math.min(fullText.length, index + searchTerm.length + contextLength);
@@ -53,7 +79,7 @@
         let term = fullText.substring(index, index + searchTerm.length);
         let after = fullText.substring(index + searchTerm.length, end);
         
-        results.push({ before, term, after });
+        results.push({ date: nearestDate, before, term, after });
         lastIndex = index + 1;
       }
       
@@ -66,31 +92,63 @@
       
       let resultsDiv = document.getElementById('results');
       if (results.length > 0) {
-        resultsDiv.innerHTML = results.map(result => 
-          `<div style="display: flex; margin-bottom: 10px; background: #f5f5f5; padding: 10px; align-items: center;">
-            <div style="
-              flex: 1; 
-              text-align: right; 
-              padding-right: 20px; 
-              overflow: hidden; 
-              white-space: nowrap;
-              direction: rtl;
-            ">${result.before}</div>
-            <div style="
-              background: pink; 
-              padding: 0 10px;
-              flex-shrink: 0;
-              min-width: max-content;
-            ">${result.term}</div>
-            <div style="
-              flex: 1; 
-              text-align: left; 
-              padding-left: 20px; 
-              overflow: hidden; 
-              white-space: nowrap;
-            ">${result.after}</div>
-          </div>`
-        ).join('');
+        resultsDiv.innerHTML = `
+          <table style="
+            width: 100%; 
+            table-layout: fixed; 
+            border-collapse: collapse;
+          ">
+            ${results.map(result => `
+              <tr style="border: 1px solid #ddd;">
+                <td style="
+                  width: 5%; 
+                  padding: 10px;
+                  border-right: 1px solid #ddd;
+                  font-size: 0.9em;
+                  color: #666;
+                  vertical-align: middle;
+                  text-align: center;
+                  word-wrap: break-word;
+                ">${result.date}</td>
+                <td style="
+                  width: 95%; 
+                  padding: 10px;
+                  overflow: hidden;
+                ">
+                  <div style="
+                    display: flex; 
+                    align-items: center;
+                    overflow: hidden;
+                  ">
+                    <div style="
+                      flex: 1; 
+                      text-align: right; 
+                      padding-right: 20px; 
+                      overflow: hidden; 
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                      direction: rtl;
+                    ">${result.before}</div>
+                    <div style="
+                      background: pink; 
+                      padding: 0 10px;
+                      flex-shrink: 0;
+                      white-space: nowrap;
+                    ">${result.term}</div>
+                    <div style="
+                      flex: 1; 
+                      text-align: left; 
+                      padding-left: 20px; 
+                      overflow: hidden; 
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                    ">${result.after}</div>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </table>
+        `;
       } else {
         resultsDiv.innerHTML = searchTerm ? 
           '<div style="padding: 10px;">No matches found</div>' : 
