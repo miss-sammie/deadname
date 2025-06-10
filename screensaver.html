@@ -7,23 +7,13 @@
     <title>Screensaver</title>
     <link href="/style.css" rel="stylesheet" type="text/css" media="all">
     <script src="https://cdn.jsdelivr.net/npm/p5@1.8.0/lib/p5.js"></script>
-    <script src="https://cdn.rawgit.com/alexgibson/shake.js/master/shake.js"></script>
 
   </head>
   <body>
 
     <button type="button" class="collapsible"><b><a href="/index.html">Go Home</a></b></button>
     <div class="content">
-    
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Screensaver</title>
-          <script src="https://cdn.jsdelivr.net/npm/p5@1.8.0/lib/p5.js"></script>
-        </head>
-        <body>
+
           <div id="content" style="display:none"></div>
       
           <script>
@@ -37,7 +27,7 @@
           let spaceCount = 0;
           let colors = ['black','blue','red','white','pink'];
           let colorCount = 0;
-          let speed = [500,1000,5000,10000];
+          let speed = [100,500,1000,5000,10000];
           let currentSpeed = 50;
           let intervalRef;
           let currentMode = 1;
@@ -80,6 +70,7 @@
             var colorRand = Math.floor(Math.random() * colors.length);
             var speedRand = Math.floor(Math.random() * speed.length);
             var wildCard = Math.floor(Math.random() * 10);
+            if(textPositions.length > 200) {
             if (wildCard === 3) {
               clearAll();
               console.log('bye!');
@@ -87,6 +78,7 @@
               clearRand();
               console.log('sandblasted');
             }
+          }
             sizeCount = sizeRand;
             spaceCount = spaceRand;
             colorCount = colorRand;
