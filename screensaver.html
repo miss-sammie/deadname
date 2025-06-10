@@ -27,7 +27,7 @@
           let spaceCount = 0;
           let colors = ['black','blue','red','white','pink'];
           let colorCount = 0;
-          let speed = [100,500,1000,5000,10000];
+          let speed = [100,500,1000,5000];
           let currentSpeed = 50;
           let intervalRef;
           let currentMode = 1;
@@ -70,7 +70,7 @@
             var colorRand = Math.floor(Math.random() * colors.length);
             var speedRand = Math.floor(Math.random() * speed.length);
             var wildCard = Math.floor(Math.random() * 10);
-            if(textPositions.length > 200) {
+            if(textPositions.length > 500) {
             if (wildCard === 3) {
               clearAll();
               console.log('bye!');
