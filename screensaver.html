@@ -37,7 +37,7 @@
           let spaceCount = 0;
           let colors = ['black','blue','red','white','pink'];
           let colorCount = 0;
-          let speed = [50,500,1000];
+          let speed = [50,500,1000,5000,10000];
           let currentSpeed = 50;
           let intervalRef;
           let currentMode = 1;
@@ -79,6 +79,14 @@
             var spaceRand = Math.floor(Math.random() * spacing.length);
             var colorRand = Math.floor(Math.random() * colors.length);
             var speedRand = Math.floor(Math.random() * speed.length);
+            var wildCard = Math.floor(Math.random() * 10);
+            if (wildCard === 3) {
+              clearAll();
+              console.log('bye!');
+            } else if (wildCard === 7) {
+              clearRand();
+              console.log('sandblasted');
+            }
             sizeCount = sizeRand;
             spaceCount = spaceRand;
             colorCount = colorRand;
@@ -113,7 +121,17 @@
               }
             }
           }
-      
+
+          function clearAll() {
+            textPositions = [];
+          }
+
+          function clearRand() {
+            const len = textPositions.length;
+            const randIndex = Math.floor(Math.random() * len);
+            textPositions = textPositions.slice(randIndex);
+          }
+        
           function mouseClicked() {
             if (mouseButton === LEFT) {
               randomBonk();
@@ -135,6 +153,10 @@
           function keyPressed() {
             if (key === '1') {
               randomBonk();
+            } else if (key === '2') {
+              clearAll();
+            } else if (key === '3') {
+              clearRand();
             }
           }
       
