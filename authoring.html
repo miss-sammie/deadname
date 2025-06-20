@@ -10,7 +10,7 @@
         }
         
         body {
-            font-family: 'Times New Roman', serif;
+            font-family: Arial, Helvetica, sans-serif;
             margin: 0;
             padding: 0;
             background: #fafafa;
@@ -92,7 +92,7 @@
             border-bottom: 1px solid #ccc;
             background: transparent;
             outline: none;
-            font-family: 'Times New Roman', serif;
+            font-family: Arial, Helvetica, sans-serif;
             font-size: 16px;
         }
         
@@ -140,6 +140,7 @@
             user-select: none;
             line-height: 1.4;
             color: #333;
+            font-size: 20px;
         }
         
         .paragraph-item:hover {
@@ -253,8 +254,8 @@
             min-height: 20px;
             border: none;
             background: transparent;
-            font-family: 'Times New Roman', serif;
-            font-size: 16px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 20px;
             line-height: 1.4;
             resize: none;
             outline: none;
@@ -270,8 +271,8 @@
         }
         
         .composition-text {
-            font-family: 'Times New Roman', serif;
-            font-size: 16px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 20px;
             line-height: 1.4;
             color: #333;
             padding: 0;
@@ -390,7 +391,7 @@
             height: 100%;
             border: none;
             background: transparent;
-            font-family: 'Times New Roman', serif;
+            font-family: Arial, Helvetica, sans-serif;
             font-size: 16px;
             cursor: pointer;
             transition: background 0.2s ease;
@@ -420,6 +421,8 @@
         .swipe-indicator.show {
             opacity: 1;
         }
+        
+
         
         @media (max-width: 768px) {
             .mobile-nav {
@@ -491,7 +494,7 @@
         <!-- Author Pane -->
         <div class="author-pane">
             <div class="pane-header">
-                <input type="text" id="documentName" placeholder="Untitled" style="width: 100%; border: none; background: transparent; font-family: 'Times New Roman', serif; font-size: 18px; font-weight: bold; outline: none; color: #333;">
+                <input type="text" id="documentName" placeholder="Untitled" style="width: 100%; border: none; background: transparent; font-family: Arial, Helvetica, sans-serif; font-size: 18px; font-weight: bold; outline: none; color: #333;">
             </div>
             <div class="author-content" id="authorContent">
                 <div class="empty-state">
@@ -599,6 +602,18 @@
                     content: paragraph.text,
                     sourceId: paragraph.id
                 });
+                
+                // Visual feedback
+                e.target.style.transform = 'scale(0.95)';
+                e.target.style.transition = 'transform 0.2s ease';
+                setTimeout(() => {
+                    e.target.style.transform = 'scale(1)';
+                }, 200);
+                
+                // Haptic feedback on mobile
+                if (navigator.vibrate) {
+                    navigator.vibrate(25);
+                }
                 
                 renderComposition();
                 autoSave();
@@ -926,9 +941,45 @@
         }
         
         function setupCompositionItemClick(item) {
+            let compositionLongPressTimer = null;
+            let isCompositionLongPress = false;
+            
+            // Touch events for mobile long press
+            item.addEventListener('touchstart', (e) => {
+                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') {
+                    return;
+                }
+                
+                isCompositionLongPress = false;
+                compositionLongPressTimer = setTimeout(() => {
+                    isCompositionLongPress = true;
+                    handleCompositionLongPress(item);
+                }, 500);
+            }, { passive: false });
+            
+            item.addEventListener('touchmove', (e) => {
+                if (compositionLongPressTimer) {
+                    clearTimeout(compositionLongPressTimer);
+                    compositionLongPressTimer = null;
+                }
+            }, { passive: false });
+            
+            item.addEventListener('touchend', (e) => {
+                if (compositionLongPressTimer) {
+                    clearTimeout(compositionLongPressTimer);
+                    compositionLongPressTimer = null;
+                }
+            }, { passive: false });
+            
             item.addEventListener('click', (e) => {
                 // Don't interfere with textarea editing or button clicks
                 if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') {
+                    return;
+                }
+                
+                // Skip if this was a long press
+                if (isCompositionLongPress) {
+                    isCompositionLongPress = false;
                     return;
                 }
                 
@@ -1041,11 +1092,116 @@
             return Date.now().toString(36) + Math.random().toString(36).substr(2);
         }
         
+        function insertRandomParagraphs(numParagraphs, threshold = null) {
+            if (!paragraphs || paragraphs.length === 0) {
+                console.warn('No paragraphs available in archive');
+                return;
+            }
+            
+            // Clear current composition
+            composition = [];
+            
+            if (!threshold) {
+                // Original behavior: simple random selection
+                const maxParagraphs = Math.min(numParagraphs, paragraphs.length);
+                const shuffledParagraphs = [...paragraphs].sort(() => Math.random() - 0.5);
+                const selectedParagraphs = shuffledParagraphs.slice(0, maxParagraphs);
+                
+                selectedParagraphs.forEach(paragraph => {
+                    composition.push({
+                        type: 'archive',
+                        content: paragraph.text,
+                        sourceId: paragraph.id
+                    });
+                });
+            } else {
+                // Threshold behavior: combine paragraphs until threshold is reached
+                let itemsCreated = 0;
+                const usedIndices = new Set();
+                
+                while (itemsCreated < numParagraphs && usedIndices.size < paragraphs.length) {
+                    // Pick a random starting paragraph that hasn't been used
+                    let availableIndices = paragraphs
+                        .map((_, index) => index)
+                        .filter(index => !usedIndices.has(index));
+                    
+                    if (availableIndices.length === 0) break;
+                    
+                    let startIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+                    let combinedText = paragraphs[startIndex].text;
+                    let currentIndex = startIndex;
+                    
+                    usedIndices.add(startIndex);
+                    
+                    // Keep adding sequential paragraphs until threshold is reached
+                                            while (combinedText.length < threshold && usedIndices.size < paragraphs.length) {
+                            // Find next available paragraph (wrapping around if needed)
+                            let nextIndex = (currentIndex + 1) % paragraphs.length;
+                            let attempts = 0;
+                            
+                            while (usedIndices.has(nextIndex) && attempts < paragraphs.length) {
+                                nextIndex = (nextIndex + 1) % paragraphs.length;
+                                attempts++;
+                            }
+                            
+                            if (attempts >= paragraphs.length) break; // No more available paragraphs
+                            
+                            combinedText += '\n\n' + paragraphs[nextIndex].text;
+                            usedIndices.add(nextIndex);
+                            currentIndex = nextIndex;
+                        }
+                    
+                    // Add the combined text as a single editable composition item
+                    composition.push({
+                        type: 'text',
+                        content: combinedText
+                    });
+                    
+                    itemsCreated++;
+                }
+            }
+            
+            // Visual feedback - show loading briefly
+            const authorContent = document.getElementById('authorContent');
+            const thresholdText = threshold ? ` with ${threshold} char threshold` : '';
+            authorContent.innerHTML = `
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #666;">
+                    <div style="font-size: 18px;">Loading ${composition.length} items${thresholdText}...</div>
+                </div>
+            `;
+            
+            // Render after a brief delay for visual feedback
+            setTimeout(() => {
+                renderComposition();
+                
+                // Haptic feedback if available
+                if (navigator.vibrate) {
+                    navigator.vibrate([50, 100, 50]);
+                }
+            }, 300);
+        }
+        
         // Event listeners
         document.getElementById('searchInput').addEventListener('input', renderParagraphs);
         
-        // Auto-save document name changes
-        document.getElementById('documentName').addEventListener('input', autoSave);
+        // Auto-save document name changes and handle special commands
+        document.getElementById('documentName').addEventListener('input', function(e) {
+            const title = e.target.value.trim();
+            
+            // Check for $RANDOM[n] or $RANDOM[n,t] pattern
+            const randomMatch = title.match(/^\$RANDOM\[(\d+)(?:,(\d+))?\]$/i);
+            if (randomMatch) {
+                const numParagraphs = parseInt(randomMatch[1]);
+                const threshold = randomMatch[2] ? parseInt(randomMatch[2]) : null;
+                insertRandomParagraphs(numParagraphs, threshold);
+                
+                // Clear the special command and set a normal title
+                const thresholdText = threshold ? `, threshold ${threshold}` : '';
+                e.target.value = `Random Collection (${numParagraphs} items${thresholdText})`;
+            }
+            
+            autoSave();
+        });
         
         // Clear selections when clicking outside of items
         document.addEventListener('click', function(e) {
@@ -1170,6 +1326,30 @@
             }
         }
         
+        function handleCompositionLongPress(compositionItem) {
+            // Haptic feedback if available
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+            
+            // Add visual feedback
+            compositionItem.style.transform = 'scale(1.05)';
+            compositionItem.style.transition = 'transform 0.2s ease';
+            setTimeout(() => {
+                compositionItem.style.transform = 'scale(1)';
+            }, 200);
+            
+            // Add to selection for drag reordering
+            const index = parseInt(compositionItem.dataset.index);
+            if (selectedCompositionItems.includes(index)) {
+                selectedCompositionItems = selectedCompositionItems.filter(i => i !== index);
+                compositionItem.classList.remove('selected');
+            } else {
+                selectedCompositionItems.push(index);
+                compositionItem.classList.add('selected');
+            }
+        }
+        
         function showSwipeIndicator(direction) {
             const indicator = document.querySelector('.swipe-indicator');
             indicator.textContent = direction === 'left' ? '←' : '→';
@@ -1178,6 +1358,8 @@
                 indicator.classList.remove('show');
             }, 1000);
         }
+        
+
         
         // Enhanced mobile paragraph click handling
         function handleMobileParagraphClick(e) {
@@ -1204,6 +1386,19 @@
                         content: paragraph.text,
                         sourceId: paragraph.id
                     });
+                    
+                    // Visual feedback
+                    paragraphItem.style.transform = 'scale(0.95)';
+                    paragraphItem.style.transition = 'transform 0.2s ease';
+                    setTimeout(() => {
+                        paragraphItem.style.transform = 'scale(1)';
+                    }, 200);
+                    
+                    // Haptic feedback
+                    if (navigator.vibrate) {
+                        navigator.vibrate(25);
+                    }
+                    
                     renderComposition();
                     autoSave();
                     
