@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archive Authoring Tool</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Times New Roman', serif;
+            margin: 0;
+            padding: 0;
+            background: #fafafa;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+        
+        .archive-pane {
+            width: 50%;
+            background: white;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        
+        .author-pane {
+            width: 50%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .container {
+                overflow: hidden;
+            }
+            
+            .archive-pane, .author-pane {
+                width: 100vw;
+                position: absolute;
+                top: 0;
+                height: 100vh;
+                border-right: none;
+            }
+            
+            .archive-pane {
+                left: 0;
+                transform: translateX(0);
+            }
+            
+            .author-pane {
+                left: 0;
+                transform: translateX(100%);
+            }
+            
+            .container.show-author .archive-pane {
+                transform: translateX(-100%);
+            }
+            
+            .container.show-author .author-pane {
+                transform: translateX(0);
+            }
+        }
+        
+        .pane-header {
+            padding: 20px 20px 10px 20px;
+            border-bottom: 1px solid #ddd;
+            background: white;
+            flex-shrink: 0;
+        }
+        
+        .archive-pane .pane-header {
+            background: #f9f9f9;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 8px 0;
+            border: none;
+            border-bottom: 1px solid #ccc;
+            background: transparent;
+            outline: none;
+            font-family: 'Times New Roman', serif;
+            font-size: 16px;
+        }
+        
+        .search-input::placeholder {
+            color: #999;
+        }
+        
+        /* Minimal scrollbars that auto-hide */
+        .paragraph-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0,0,0,0.2) transparent;
+        }
+        
+        .paragraph-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .paragraph-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .paragraph-list::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 2px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .paragraph-list:hover::-webkit-scrollbar-thumb {
+            opacity: 1;
+        }
+        
+        .paragraph-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,0,0,0.4);
+        }
+        
+        .paragraph-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: grab;
+            transition: background 0.2s;
+            user-select: none;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        .paragraph-item:hover {
+            background: #f9f9f9;
+        }
+        
+        .paragraph-item:active {
+            cursor: grabbing;
+        }
+        
+        .paragraph-item.selected {
+            background: #f5f5f5;
+            border-left: 3px solid #666;
+        }
+        
+        .composition-item.selected {
+            background: #f5f5f5;
+            border-left: 3px solid #666;
+        }
+        
+        .author-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0,0,0,0.2) transparent;
+            position: relative;
+        }
+        
+        .author-content::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .author-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .author-content::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 2px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .author-content:hover::-webkit-scrollbar-thumb {
+            opacity: 1;
+        }
+        
+        .author-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,0,0,0.4);
+        }
+        
+        .empty-state {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        
+        .plus-button {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 24px;
+            color: #999;
+            transition: all 0.2s ease;
+            margin: 0 auto 20px auto;
+        }
+        
+        .plus-button:hover {
+            border-color: #007bff;
+            color: #007bff;
+            background: #f8f9ff;
+        }
+        
+        .empty-text {
+            color: #999;
+            font-size: 14px;
+            font-style: italic;
+        }
+        
+        .composition-item {
+            padding: 4px 20px;
+            background: white;
+            position: relative;
+            min-height: 20px;
+            cursor: grab;
+        }
+        
+        .composition-item.editable {
+            background: white;
+        }
+        
+        .composition-item:active {
+            cursor: grabbing;
+        }
+        
+        .composition-item.dragging {
+            opacity: 0.5;
+        }
+        
+        .composition-textarea {
+            width: 100%;
+            min-height: 20px;
+            border: none;
+            background: transparent;
+            font-family: 'Times New Roman', serif;
+            font-size: 16px;
+            line-height: 1.4;
+            resize: none;
+            outline: none;
+            color: #333;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            display: block;
+            box-sizing: border-box;
+            vertical-align: baseline;
+            font-weight: normal;
+            font-style: normal;
+        }
+        
+        .composition-text {
+            font-family: 'Times New Roman', serif;
+            font-size: 16px;
+            line-height: 1.4;
+            color: #333;
+            padding: 0;
+            margin: 0;
+            display: block;
+            box-sizing: border-box;
+            vertical-align: baseline;
+            font-weight: normal;
+            font-style: normal;
+            word-wrap: break-word;
+        }
+        
+        .item-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: none;
+            gap: 5px;
+        }
+        
+        .composition-item:hover .item-controls {
+            display: flex;
+        }
+        
+        .control-btn {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .control-btn:hover {
+            background: #f0f0f0;
+            border-color: #bbb;
+        }
+        
+        .drop-zone {
+            min-height: 20px;
+            border: 1px dashed transparent;
+            margin: 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ddd;
+            font-style: italic;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .drop-zone.drag-over {
+            border-color: #666;
+            background: white;
+            color: #666;
+            min-height: 40px;
+        }
+        
+        .bottom-drop-zone {
+            min-height: 200px;
+            flex: 1;
+            border: 1px dashed transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ddd;
+            font-style: italic;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .bottom-drop-zone.drag-over {
+            border-color: #666;
+            background: white;
+            color: #666;
+        }
+        
+        .export-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 16px;
+            border: 1px solid #666;
+            background: #666;
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            opacity: 0.8;
+            transition: opacity 0.2s ease;
+        }
+        
+        .export-btn:hover {
+            opacity: 1;
+        }
+        
+        /* Mobile navigation */
+        .mobile-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: white;
+            border-top: 1px solid #ddd;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .nav-button {
+            flex: 1;
+            height: 100%;
+            border: none;
+            background: transparent;
+            font-family: 'Times New Roman', serif;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        .nav-button.active {
+            background: #f5f5f5;
+        }
+        
+        .nav-button:hover {
+            background: #f0f0f0;
+        }
+        
+        .swipe-indicator {
+            position: fixed;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #ccc;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 100;
+        }
+        
+        .swipe-indicator.show {
+            opacity: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-nav {
+                display: flex;
+            }
+            
+            .author-pane, .archive-pane {
+                padding-bottom: 60px;
+            }
+            
+            .export-btn {
+                bottom: 80px;
+            }
+            
+            .paragraph-item {
+                min-height: 60px;
+                padding: 15px;
+                display: flex;
+                align-items: center;
+                user-select: none;
+                -webkit-user-select: none;
+                -webkit-touch-callout: none;
+            }
+            
+            .paragraph-item.selected {
+                background: #f5f5f5;
+                border-left: 4px solid #666;
+            }
+            
+            .composition-item {
+                min-height: 60px;
+                padding: 15px 20px;
+            }
+            
+            .search-input {
+                font-size: 16px;
+                padding: 12px;
+            }
+            
+            .plus-button {
+                width: 60px;
+                height: 60px;
+                font-size: 24px;
+            }
+            
+            .control-btn {
+                padding: 8px 12px;
+                font-size: 14px;
+                min-height: 44px;
+                min-width: 44px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Archive Pane -->
+        <div class="archive-pane">
+            <div class="pane-header">
+                <input type="text" class="search-input" id="searchInput" placeholder="Search...">
+            </div>
+            <div class="paragraph-list" id="paragraphList">
+                <div style="padding: 20px; color: #999; text-align: center; font-style: italic;">
+                    Loading archive...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Author Pane -->
+        <div class="author-pane">
+            <div class="pane-header">
+                <input type="text" id="documentName" placeholder="Untitled" style="width: 100%; border: none; background: transparent; font-family: 'Times New Roman', serif; font-size: 18px; font-weight: bold; outline: none; color: #333;">
+            </div>
+            <div class="author-content" id="authorContent">
+                <div class="empty-state">
+                    <div class="plus-button" onclick="addTextBlock()">+</div>
+                    <div class="empty-text">Start writing or drag text from archive</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav">
+        <button class="nav-button active" onclick="showArchive()">Archive</button>
+        <button class="nav-button" onclick="showAuthor()">Document</button>
+    </div>
+    
+    <div class="swipe-indicator">→</div>
+
+    <button class="export-btn" onclick="exportDocument()">Export</button>
+
+    <script>
+        let paragraphs = [];
+        let composition = [];
+        let documents = JSON.parse(localStorage.getItem('savedDocuments') || '{}');
+        let currentDocumentId = null;
+        let selectedParagraphs = [];
+        let selectedCompositionItems = [];
+        
+        // Load paragraphs from index.html
+        async function loadArchive() {
+            try {
+                const response = await fetch('index.html');
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                const paragraphElements = doc.querySelectorAll('p');
+                paragraphs = Array.from(paragraphElements).map((p, index) => ({
+                    id: index,
+                    text: p.textContent.trim(),
+                    element: p.outerHTML
+                })).filter(p => p.text.length > 0);
+                
+                renderParagraphs();
+            } catch (error) {
+                console.error('Error loading archive:', error);
+                document.getElementById('paragraphList').innerHTML = 
+                    '<div style="padding: 20px; color: #999; text-align: center; font-style: italic;">Error loading archive</div>';
+            }
+        }
+        
+        function renderParagraphs() {
+            const container = document.getElementById('paragraphList');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            let filteredParagraphs = paragraphs.filter(p => 
+                p.text.toLowerCase().includes(searchTerm)
+            );
+            
+            container.innerHTML = filteredParagraphs.map(p => {
+                const isSelected = selectedParagraphs.includes(p.id);
+                return `
+                    <div class="paragraph-item ${isSelected ? 'selected' : ''}" draggable="true" data-id="${p.id}">
+                        ${p.text}
+                    </div>
+                `;
+            }).join('');
+            
+            // Add event listeners
+            container.querySelectorAll('.paragraph-item').forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dblclick', handleDoubleClick);
+                item.addEventListener('click', handleParagraphClick);
+            });
+        }
+        
+        function handleDragStart(e) {
+            const id = parseInt(e.target.dataset.id);
+            
+            // If this item isn't selected, select it (for single item drag)
+            if (!selectedParagraphs.includes(id)) {
+                clearSelection();
+                selectedParagraphs = [id];
+                e.target.classList.add('selected');
+            }
+            
+            // Get all selected paragraphs
+            const selectedParagraphData = selectedParagraphs.map(selectedId => 
+                paragraphs.find(p => p.id == selectedId)
+            ).filter(p => p); // Filter out any undefined results
+            
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                type: 'archive-paragraphs',
+                paragraphs: selectedParagraphData
+            }));
+        }
+        
+        function handleDoubleClick(e) {
+            const id = e.target.dataset.id;
+            const paragraph = paragraphs.find(p => p.id == id);
+            
+            if (paragraph) {
+                composition.push({
+                    type: 'archive',
+                    content: paragraph.text,
+                    sourceId: paragraph.id
+                });
+                
+                renderComposition();
+                autoSave();
+                clearSelection();
+            }
+        }
+        
+        function handleParagraphClick(e) {
+            e.preventDefault();
+            const id = parseInt(e.target.dataset.id);
+            
+            if (e.shiftKey) {
+                // Multi-select with shift+click
+                if (selectedParagraphs.includes(id)) {
+                    // Remove from selection
+                    selectedParagraphs = selectedParagraphs.filter(pid => pid !== id);
+                    e.target.classList.remove('selected');
+                } else {
+                    // Add to selection
+                    selectedParagraphs.push(id);
+                    e.target.classList.add('selected');
+                }
+            } else {
+                // Single select (clear previous selection)
+                clearSelection();
+                selectedParagraphs = [id];
+                e.target.classList.add('selected');
+            }
+        }
+        
+        function clearSelection() {
+            selectedParagraphs = [];
+            document.querySelectorAll('.paragraph-item.selected').forEach(item => {
+                item.classList.remove('selected');
+            });
+        }
+        
+        function renderComposition() {
+            const container = document.getElementById('authorContent');
+            
+            if (composition.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="plus-button" onclick="addTextBlock()">+</div>
+                        <div class="empty-text">Start writing or double-click anywhere to begin</div>
+                    </div>
+                    <div class="bottom-drop-zone" data-index="0"></div>
+                `;
+                container.querySelectorAll('.bottom-drop-zone').forEach(setupDropZone);
+                return;
+            }
+            
+            container.innerHTML = composition.map((item, index) => {
+                const isSelected = selectedCompositionItems.includes(index);
+                if (item.type === 'text') {
+                    return `
+                        <div class="composition-item editable ${isSelected ? 'selected' : ''}" data-index="${index}" draggable="true">
+                            <textarea class="composition-textarea" placeholder="Write here...">${item.content}</textarea>
+                            <div class="item-controls">
+                                <button class="control-btn" onclick="moveItem(${index}, -1)">↑</button>
+                                <button class="control-btn" onclick="moveItem(${index}, 1)">↓</button>
+                                <button class="control-btn" onclick="removeItem(${index})">×</button>
+                            </div>
+                        </div>
+                        <div class="drop-zone" data-index="${index + 1}"></div>
+                    `;
+                } else {
+                    return `
+                        <div class="composition-item ${isSelected ? 'selected' : ''}" data-index="${index}" draggable="true">
+                            <div class="composition-text">${item.content}</div>
+                            <div class="item-controls">
+                                <button class="control-btn" onclick="editItem(${index})">Edit</button>
+                                <button class="control-btn" onclick="moveItem(${index}, -1)">↑</button>
+                                <button class="control-btn" onclick="moveItem(${index}, 1)">↓</button>
+                                <button class="control-btn" onclick="removeItem(${index})">×</button>
+                            </div>
+                        </div>
+                        <div class="drop-zone" data-index="${index + 1}"></div>
+                    `;
+                }
+            }).join('') + `<div class="bottom-drop-zone" data-index="${composition.length}"></div>`;
+            
+            // Setup drop zones and text areas
+            container.querySelectorAll('.drop-zone, .bottom-drop-zone').forEach(setupDropZone);
+            container.querySelectorAll('.composition-item').forEach(setupCompositionItemDrag);
+            container.querySelectorAll('.composition-item').forEach(setupCompositionItemClick);
+            container.querySelectorAll('.composition-textarea').forEach(textarea => {
+                // Initial auto-resize
+                autoResizeTextarea(textarea);
+                
+                textarea.addEventListener('input', (e) => {
+                    const index = parseInt(e.target.closest('.composition-item').dataset.index);
+                    const newContent = e.target.value;
+                    
+                    // Check if content has multiple paragraphs (contains line breaks)
+                    if (newContent.includes('\n')) {
+                        const paragraphs = newContent.split('\n').filter(p => p.trim() !== '');
+                        
+                        if (paragraphs.length > 1) {
+                            // Replace current item with first paragraph
+                            composition[index].content = paragraphs[0];
+                            
+                            // Insert additional paragraphs after current item
+                            for (let i = 1; i < paragraphs.length; i++) {
+                                composition.splice(index + i, 0, {
+                                    type: 'text',
+                                    content: paragraphs[i]
+                                });
+                            }
+                            
+                            renderComposition();
+                            autoSave();
+                            return;
+                        }
+                    }
+                    
+                    composition[index].content = newContent;
+                    autoSave();
+                    // Auto-resize on input
+                    autoResizeTextarea(e.target);
+                });
+                
+                // Handle Enter key for new paragraphs
+                textarea.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        const index = parseInt(e.target.closest('.composition-item').dataset.index);
+                        
+                        // Split content at cursor position
+                        const cursorPosition = e.target.selectionStart;
+                        const beforeCursor = e.target.value.substring(0, cursorPosition);
+                        const afterCursor = e.target.value.substring(cursorPosition);
+                        
+                        // Update current item with text before cursor
+                        composition[index].content = beforeCursor;
+                        
+                        // Create new item with text after cursor
+                        composition.splice(index + 1, 0, {
+                            type: 'text',
+                            content: afterCursor
+                        });
+                        
+                        renderComposition();
+                        autoSave();
+                        
+                        // Focus on the new textarea
+                        setTimeout(() => {
+                            const newTextarea = container.querySelector(`[data-index="${index + 1}"] textarea`);
+                            if (newTextarea) {
+                                newTextarea.focus();
+                                newTextarea.setSelectionRange(0, 0);
+                                autoResizeTextarea(newTextarea);
+                            }
+                        }, 50);
+                    }
+                });
+            });
+        }
+        
+        function setupDropZone(dropZone) {
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+            
+            // Add double-click to create new text block
+            dropZone.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                const insertIndex = dropZone.dataset.index ? 
+                    parseInt(dropZone.dataset.index) : composition.length;
+                
+                composition.splice(insertIndex, 0, {
+                    type: 'text',
+                    content: ''
+                });
+                
+                renderComposition();
+                autoSave();
+                
+                // Focus on the new textarea
+                setTimeout(() => {
+                    const newTextarea = document.querySelector(`[data-index="${insertIndex}"] textarea`);
+                    if (newTextarea) {
+                        newTextarea.focus();
+                        autoResizeTextarea(newTextarea);
+                    }
+                }, 50);
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                
+                try {
+                    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                    const insertIndex = dropZone.dataset.index ? 
+                        parseInt(dropZone.dataset.index) : composition.length;
+                    
+                    if (data.type === 'archive-paragraph') {
+                        // Handle single paragraph (backwards compatibility)
+                        composition.splice(insertIndex, 0, {
+                            type: 'archive',
+                            content: data.paragraph.text,
+                            sourceId: data.paragraph.id
+                        });
+                        
+                        renderComposition();
+                        autoSave();
+                        clearSelection();
+                    } else if (data.type === 'archive-paragraphs') {
+                        // Handle multiple paragraphs
+                        data.paragraphs.forEach((paragraph, index) => {
+                            composition.splice(insertIndex + index, 0, {
+                                type: 'archive',
+                                content: paragraph.text,
+                                sourceId: paragraph.id
+                            });
+                        });
+                        
+                        renderComposition();
+                        autoSave();
+                        clearSelection();
+                    } else if (data.type === 'composition-item') {
+                        // Handle single item reordering (backwards compatibility)
+                        const sourceIndex = data.sourceIndex;
+                        const targetIndex = insertIndex > sourceIndex ? insertIndex - 1 : insertIndex;
+                        
+                        if (sourceIndex !== targetIndex) {
+                            const item = composition.splice(sourceIndex, 1)[0];
+                            composition.splice(targetIndex, 0, item);
+                            
+                            renderComposition();
+                            autoSave();
+                        }
+                    } else if (data.type === 'composition-items') {
+                        // Handle multiple items reordering
+                        const items = data.items;
+                        const sourceIndices = items.map(item => item.index).sort((a, b) => b - a); // Sort descending
+                        
+                        // Extract items from composition (from highest index to lowest to maintain indices)
+                        const extractedItems = sourceIndices.map(index => composition.splice(index, 1)[0]);
+                        extractedItems.reverse(); // Reverse to maintain original order
+                        
+                        // Calculate target index accounting for removed items
+                        let adjustedTargetIndex = insertIndex;
+                        for (let sourceIndex of sourceIndices) {
+                            if (sourceIndex < insertIndex) {
+                                adjustedTargetIndex--;
+                            }
+                        }
+                        
+                        // Insert items at target position
+                        composition.splice(adjustedTargetIndex, 0, ...extractedItems);
+                        
+                        renderComposition();
+                        autoSave();
+                        clearCompositionSelection();
+                    }
+                } catch (error) {
+                    console.error('Error handling drop:', error);
+                }
+            });
+        }
+        
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+        
+        function setupCompositionItemDrag(item) {
+            item.addEventListener('dragstart', (e) => {
+                const index = parseInt(item.dataset.index);
+                
+                // If this item isn't selected, select it (for single item drag)
+                if (!selectedCompositionItems.includes(index)) {
+                    clearCompositionSelection();
+                    selectedCompositionItems = [index];
+                    item.classList.add('selected');
+                }
+                
+                // Get all selected items data
+                const selectedItemsData = selectedCompositionItems.map(selectedIndex => ({
+                    index: selectedIndex,
+                    content: composition[selectedIndex]
+                })).sort((a, b) => a.index - b.index); // Sort by index
+                
+                const dragData = {
+                    type: 'composition-items',
+                    items: selectedItemsData
+                };
+                e.dataTransfer.setData('text/plain', JSON.stringify(dragData));
+                item.style.opacity = '0.5';
+            });
+            
+            item.addEventListener('dragend', (e) => {
+                item.style.opacity = '1';
+            });
+            
+            // Add double-click to edit archive items
+            if (!item.classList.contains('editable')) {
+                item.addEventListener('dblclick', (e) => {
+                    e.preventDefault();
+                    const index = parseInt(item.dataset.index);
+                    if (composition[index] && composition[index].type === 'archive') {
+                        composition[index].type = 'text';
+                        renderComposition();
+                        
+                        // Focus on the new textarea
+                        setTimeout(() => {
+                            const newTextarea = document.querySelector(`[data-index="${index}"] textarea`);
+                            if (newTextarea) {
+                                newTextarea.focus();
+                                // Move cursor to end
+                                newTextarea.setSelectionRange(newTextarea.value.length, newTextarea.value.length);
+                                autoResizeTextarea(newTextarea);
+                            }
+                        }, 50);
+                    }
+                });
+            }
+        }
+        
+        function setupCompositionItemClick(item) {
+            item.addEventListener('click', (e) => {
+                // Don't interfere with textarea editing or button clicks
+                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') {
+                    return;
+                }
+                
+                e.preventDefault();
+                const index = parseInt(item.dataset.index);
+                
+                if (e.shiftKey) {
+                    // Multi-select with shift+click
+                    if (selectedCompositionItems.includes(index)) {
+                        // Remove from selection
+                        selectedCompositionItems = selectedCompositionItems.filter(i => i !== index);
+                        item.classList.remove('selected');
+                    } else {
+                        // Add to selection
+                        selectedCompositionItems.push(index);
+                        item.classList.add('selected');
+                    }
+                } else {
+                    // Single select (clear previous selection)
+                    clearCompositionSelection();
+                    selectedCompositionItems = [index];
+                    item.classList.add('selected');
+                }
+            });
+        }
+        
+        function clearCompositionSelection() {
+            selectedCompositionItems = [];
+            document.querySelectorAll('.composition-item.selected').forEach(item => {
+                item.classList.remove('selected');
+            });
+        }
+        
+        function addTextBlock() {
+            composition.push({
+                type: 'text',
+                content: ''
+            });
+            clearCompositionSelection();
+            renderComposition();
+            
+            // Focus on the new textarea
+            setTimeout(() => {
+                const textareas = document.querySelectorAll('.composition-textarea');
+                if (textareas.length > 0) {
+                    const newTextarea = textareas[textareas.length - 1];
+                    newTextarea.focus();
+                    autoResizeTextarea(newTextarea);
+                }
+            }, 100);
+        }
+        
+        function removeItem(index) {
+            if (selectedCompositionItems.length > 1 && selectedCompositionItems.includes(index)) {
+                // Remove all selected items
+                const indicesToRemove = [...selectedCompositionItems].sort((a, b) => b - a); // Sort descending
+                indicesToRemove.forEach(i => composition.splice(i, 1));
+                clearCompositionSelection();
+            } else {
+                // Remove single item
+                composition.splice(index, 1);
+            }
+            renderComposition();
+            autoSave();
+        }
+        
+        function moveItem(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex >= 0 && newIndex < composition.length) {
+                const item = composition.splice(index, 1)[0];
+                composition.splice(newIndex, 0, item);
+                renderComposition();
+                autoSave();
+            }
+        }
+        
+        function editItem(index) {
+            composition[index].type = 'text';
+            renderComposition();
+        }
+        
+        function autoSave() {
+            const name = document.getElementById('documentName').value.trim() || 'Untitled';
+            const id = currentDocumentId || generateId();
+            
+            documents[id] = {
+                name: name,
+                composition: [...composition],
+                lastModified: new Date().toISOString()
+            };
+            
+            localStorage.setItem('savedDocuments', JSON.stringify(documents));
+            currentDocumentId = id;
+        }
+        
+        function exportDocument() {
+            const text = composition.map(item => item.content).join('\n\n');
+            const name = document.getElementById('documentName').value.trim() || 'untitled';
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+        
+        // Event listeners
+        document.getElementById('searchInput').addEventListener('input', renderParagraphs);
+        
+        // Auto-save document name changes
+        document.getElementById('documentName').addEventListener('input', autoSave);
+        
+        // Clear selections when clicking outside of items
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.paragraph-item') && !e.shiftKey) {
+                clearSelection();
+            }
+            if (!e.target.closest('.composition-item') && !e.shiftKey) {
+                clearCompositionSelection();
+            }
+        });
+        
+        // Keyboard shortcuts for composition
+        document.addEventListener('keydown', function(e) {
+            // Delete key removes selected composition items
+            if (e.key === 'Delete' && selectedCompositionItems.length > 0 && 
+                !e.target.matches('textarea, input')) {
+                e.preventDefault();
+                const indicesToRemove = [...selectedCompositionItems].sort((a, b) => b - a);
+                indicesToRemove.forEach(i => composition.splice(i, 1));
+                clearCompositionSelection();
+                renderComposition();
+                autoSave();
+            }
+        });
+        
+        // Mobile functionality
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let currentPane = 'archive'; // 'archive' or 'author'
+        let isLongPress = false;
+        let longPressTimer = null;
+        
+        function showArchive() {
+            currentPane = 'archive';
+            document.querySelector('.container').classList.remove('show-author');
+            updateNavButtons();
+        }
+        
+        function showAuthor() {
+            currentPane = 'author';
+            document.querySelector('.container').classList.add('show-author');
+            updateNavButtons();
+        }
+        
+        function updateNavButtons() {
+            document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
+            if (currentPane === 'archive') {
+                document.querySelector('.nav-button:first-child').classList.add('active');
+            } else {
+                document.querySelector('.nav-button:last-child').classList.add('active');
+            }
+        }
+        
+        // Touch and swipe handling
+        function handleTouchStart(e) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            
+            // Long press detection for mobile multi-select
+            if (e.target.closest('.paragraph-item')) {
+                isLongPress = false;
+                longPressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    handleMobileLongPress(e.target.closest('.paragraph-item'));
+                }, 500);
+            }
+        }
+        
+        function handleTouchMove(e) {
+            // Cancel long press if user moves finger
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            // Don't handle swipe if it was a long press
+            if (isLongPress) {
+                isLongPress = false;
+                return;
+            }
+            
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const diffX = touchStartX - touchEndX;
+            const diffY = touchStartY - touchEndY;
+            
+            // Only consider horizontal swipes (ignore vertical scrolling)
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+                if (diffX > 0) {
+                    // Swipe left - show author pane
+                    showAuthor();
+                    showSwipeIndicator('left');
+                } else {
+                    // Swipe right - show archive pane
+                    showArchive();
+                    showSwipeIndicator('right');
+                }
+            }
+        }
+        
+        function handleMobileLongPress(paragraphItem) {
+            // Haptic feedback if available
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+            
+            // Add to selection like shift+click
+            const id = parseInt(paragraphItem.dataset.id);
+            if (selectedParagraphs.includes(id)) {
+                selectedParagraphs = selectedParagraphs.filter(pid => pid !== id);
+                paragraphItem.classList.remove('selected');
+            } else {
+                selectedParagraphs.push(id);
+                paragraphItem.classList.add('selected');
+            }
+        }
+        
+        function showSwipeIndicator(direction) {
+            const indicator = document.querySelector('.swipe-indicator');
+            indicator.textContent = direction === 'left' ? '←' : '→';
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 1000);
+        }
+        
+        // Enhanced mobile paragraph click handling
+        function handleMobileParagraphClick(e) {
+            const paragraphItem = e.target.closest('.paragraph-item');
+            if (!paragraphItem) return;
+            
+            const id = parseInt(paragraphItem.dataset.id);
+            
+            // If there are selected items, add this to selection
+            if (selectedParagraphs.length > 0) {
+                if (selectedParagraphs.includes(id)) {
+                    selectedParagraphs = selectedParagraphs.filter(pid => pid !== id);
+                    paragraphItem.classList.remove('selected');
+                } else {
+                    selectedParagraphs.push(id);
+                    paragraphItem.classList.add('selected');
+                }
+            } else {
+                // Single tap - add to document and switch to author pane
+                const paragraph = paragraphs.find(p => p.id == id);
+                if (paragraph) {
+                    composition.push({
+                        type: 'archive',
+                        content: paragraph.text,
+                        sourceId: paragraph.id
+                    });
+                    renderComposition();
+                    autoSave();
+                    
+                    // Switch to author pane after adding
+                    setTimeout(() => {
+                        showAuthor();
+                    }, 100);
+                }
+            }
+        }
+        
+        // Add touch event listeners for mobile
+        if (window.innerWidth <= 768) {
+            document.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd, { passive: false });
+            
+            // Override paragraph click behavior on mobile
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.paragraph-item')) {
+                    e.preventDefault();
+                    handleMobileParagraphClick(e);
+                }
+            });
+        }
+        
+        // Initialize
+        loadArchive();
+    </script>
+</body>
+</html> 
