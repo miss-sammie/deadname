@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ghost.html</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            transition: opacity 0.5s ease;
+        }
+        
+        .container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 40px;
+            font-weight: normal;
+        }
+        
+        .slider-container {
+            margin-bottom: 30px;
+        }
+        
+        .slider-label {
+            display: block;
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: lowercase;
+        }
+        
+        .slider-value {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 15px;
+        }
+        
+        /* Square slider styling */
+        .slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #ddd;
+            outline: none;
+            border-radius: 0;
+        }
+        
+        /* Square slider thumb */
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #888;
+            cursor: pointer;
+            border-radius: 0;
+            border: none;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #888;
+            cursor: pointer;
+            border-radius: 0;
+            border: none;
+        }
+        
+        .summon-button {
+            background: white;
+            color: black;
+            border: 2px solid black;
+            padding: 15px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 0;
+            margin-top: 20px;
+            text-transform: lowercase;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+        }
+        
+        .summon-button:hover {
+            background: #f0f0f0;
+        }
+        
+        .summon-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .result-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            padding: 40px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+        }
+        
+        .result-text {
+            max-width: 800px;
+            margin: 0 auto;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: 16px;
+            line-height: 1.4;
+            color: #333;
+            text-align: left;
+        }
+        
+        .result-text p {
+            margin-bottom: 16px;
+        }
+        
+        .save-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            color: black;
+            border: 2px solid black;
+            cursor: pointer;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: 14px;
+            padding: 8px 12px;
+            display: none;
+            z-index: 1001;
+        }
+        
+        .save-button:hover {
+            background: #f0f0f0;
+        }
+        
+        .loading {
+            color: #999;
+            font-style: italic;
+            text-align: center;
+        }
+        
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .slider {
+                height: 10px;
+            }
+            
+            .slider::-webkit-slider-thumb {
+                width: 24px;
+                height: 24px;
+            }
+            
+            .slider::-moz-range-thumb {
+                width: 24px;
+                height: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div class="slider-container">
+            <label class="slider-label" for="lengthSlider">length</label>
+            <div class="slider-value" id="lengthValue">50</div>
+            <input type="range" id="lengthSlider" class="slider" min="1" max="100" value="50">
+        </div>
+        
+        <div class="slider-container">
+            <label class="slider-label" for="continuitySlider">continuity</label>
+            <div class="slider-value" id="continuityValue">125</div>
+            <input type="range" id="continuitySlider" class="slider" min="1" max="250" value="125">
+        </div>
+        
+        <button class="summon-button" id="summonButton" onclick="summonGhost()">summon</button>
+    </div>
+
+    <div class="result-container" id="resultContainer">
+        <div class="result-text" id="resultText"></div>
+    </div>
+
+    <button class="save-button" id="saveButton" onclick="saveGhostText()">save</button>
+
+    <script>
+        let paragraphs = [];
+        
+        // Load paragraphs from index.html
+        async function loadArchive() {
+            try {
+                const response = await fetch('index.html');
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                const paragraphElements = doc.querySelectorAll('p');
+                paragraphs = Array.from(paragraphElements).map((p, index) => ({
+                    id: index,
+                    text: p.textContent.trim(),
+                    element: p.outerHTML
+                })).filter(p => p.text.length > 0);
+                
+                // Enable the summon button once archive is loaded
+                document.getElementById('summonButton').disabled = false;
+            } catch (error) {
+                console.error('Error loading archive:', error);
+                document.getElementById('resultText').textContent = 'Error loading archive. Please make sure index.html exists.';
+                document.getElementById('resultContainer').style.display = 'block';
+            }
+        }
+        
+        // Generate ghost text using the randomizer algorithm
+        function generateGhostText(numParagraphs, threshold) {
+            if (!paragraphs || paragraphs.length === 0) {
+                return 'No paragraphs available in archive';
+            }
+            
+            let composition = [];
+            let itemsCreated = 0;
+            const usedIndices = new Set();
+            
+            while (itemsCreated < numParagraphs && usedIndices.size < paragraphs.length) {
+                // Pick a random starting paragraph that hasn't been used
+                let availableIndices = paragraphs
+                    .map((_, index) => index)
+                    .filter(index => !usedIndices.has(index));
+                
+                if (availableIndices.length === 0) break;
+                
+                let startIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+                let combinedText = paragraphs[startIndex].text;
+                let currentIndex = startIndex;
+                
+                usedIndices.add(startIndex);
+                
+                // Keep adding sequential paragraphs until threshold is reached
+                while (combinedText.length < threshold && usedIndices.size < paragraphs.length) {
+                    // Find next available paragraph (wrapping around if needed)
+                    let nextIndex = (currentIndex + 1) % paragraphs.length;
+                    let attempts = 0;
+                    
+                    while (usedIndices.has(nextIndex) && attempts < paragraphs.length) {
+                        nextIndex = (nextIndex + 1) % paragraphs.length;
+                        attempts++;
+                    }
+                    
+                    if (attempts >= paragraphs.length) break; // No more available paragraphs
+                    
+                    combinedText += '\n\n' + paragraphs[nextIndex].text;
+                    usedIndices.add(nextIndex);
+                    currentIndex = nextIndex;
+                }
+                
+                composition.push(combinedText);
+                itemsCreated++;
+            }
+            
+            return composition.join('\n\n---\n\n');
+        }
+        
+        let currentGhostText = '';
+        
+        function summonGhost() {
+            const length = parseInt(document.getElementById('lengthSlider').value);
+            const continuity = parseInt(document.getElementById('continuitySlider').value);
+            const resultContainer = document.getElementById('resultContainer');
+            const resultText = document.getElementById('resultText');
+            const container = document.querySelector('.container');
+            const saveButton = document.getElementById('saveButton');
+            
+            // Show loading state
+            resultText.innerHTML = '<div class="loading">listening...</div>';
+            resultContainer.style.display = 'block';
+            
+            // Generate after brief delay for visual feedback
+            setTimeout(() => {
+                const ghostText = generateGhostText(length, continuity);
+                currentGhostText = ghostText;
+                
+                // Format as paragraphs
+                const paragraphs = ghostText.split('\n\n---\n\n');
+                const formattedHtml = paragraphs.map(p => `<p>${p.replace(/\n\n/g, '</p><p>')}</p>`).join('');
+                resultText.innerHTML = formattedHtml;
+                
+                // Hide the interface and show save button
+                container.classList.add('hidden');
+                saveButton.style.display = 'block';
+                
+                // Haptic feedback if available
+                if (navigator.vibrate) {
+                    navigator.vibrate([50, 100, 50]);
+                }
+            }, 500);
+        }
+        
+        function saveGhostText() {
+            if (!currentGhostText) return;
+            
+            // Generate dynamic filename with current date
+            const now = new Date();
+            const months = ['january', 'february', 'march', 'april', 'may', 'june',
+                          'july', 'august', 'september', 'october', 'november', 'december'];
+            const month = months[now.getMonth()];
+            const day = now.getDate();
+            const year = now.getFullYear();
+            const filename = `ghost - ${month} ${day} ${year}.txt`;
+            
+            const blob = new Blob([currentGhostText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Update slider values
+        document.getElementById('lengthSlider').addEventListener('input', function(e) {
+            document.getElementById('lengthValue').textContent = e.target.value;
+        });
+        
+        document.getElementById('continuitySlider').addEventListener('input', function(e) {
+            document.getElementById('continuityValue').textContent = e.target.value;
+        });
+        
+        // Initialize
+        document.getElementById('summonButton').disabled = true;
+        loadArchive();
+    </script>
+</body>
+</html> 
