@@ -86,7 +86,13 @@
 					updateConfigFromHash();
 					this.applyModeStyles();
 					this.setupSpeechRecognition();
-					this.startListening();
+
+					// On many mobile browsers, SpeechRecognition must be triggered by a user gesture
+					if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+						this.showMobileStartOverlay();
+					} else {
+						this.startListening();
+					}
 				}
 
 				setupSpeechRecognition() {
@@ -309,6 +315,35 @@
 					} else {
 						console.error("No recognition object available");
 					}
+				}
+
+				showMobileStartOverlay() {
+					const overlay = document.createElement("div");
+					overlay.style.position = "fixed";
+					overlay.style.top = 0;
+					overlay.style.left = 0;
+					overlay.style.width = "100vw";
+					overlay.style.height = "100vh";
+					overlay.style.display = "flex";
+					overlay.style.justifyContent = "center";
+					overlay.style.alignItems = "center";
+					overlay.style.background = "#fff";
+					overlay.style.color = "#000";
+					overlay.style.fontFamily = config.fontFamily;
+					overlay.style.fontSize = "24px";
+					overlay.style.zIndex = 9999;
+					overlay.textContent = "Tap to start listening";
+
+					document.body.appendChild(overlay);
+
+					overlay.addEventListener(
+						"touchstart",
+						() => {
+							document.body.removeChild(overlay);
+							this.startListening();
+						},
+						{ once: true }
+					);
 				}
 			}
 
