@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>hearsay</title>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				background: #fff;
+				color: #000;
+				font-family: "Times New Roman", serif;
+				padding: 40px;
+				line-height: 1.6;
+			}
+
+			.transcript-line {
+				margin-bottom: 20px;
+				font-size: 18px;
+			}
+
+			.live-transcript {
+				opacity: 0.8;
+				margin-bottom: 20px;
+				font-size: 18px;
+				min-height: 1.2em;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="transcriptContainer">
+			<div id="liveTranscript" class="live-transcript"></div>
+		</div>
+
+		<script>
+			// CONFIG
+			const config = {
+				pauseTime: 500, // ms to wait before committing text
+				maxWords: 50, // max words before forcing commit
+				fontSize: "38px",
+				fontFamily: "'Comic Sans MS', sans-serif",
+				textColor: "#000",
+			};
+
+			class Hearsay {
+				constructor() {
+					this.recognition = null;
+					this.isListening = false;
+					this.commitTimer = null;
+
+					this.transcriptContainer = document.getElementById(
+						"transcriptContainer"
+					);
+					this.liveTranscript = document.getElementById("liveTranscript");
+
+					this.init();
+				}
+
+				init() {
+					this.setupSpeechRecognition();
+					this.startListening();
+				}
+
+				setupSpeechRecognition() {
+					console.log("Setting up speech recognition...");
+
+					if (
+						!("webkitSpeechRecognition" in window) &&
+						!("SpeechRecognition" in window)
+					) {
+						console.error("Speech recognition not supported in this browser");
+						return;
+					}
+
+					const SpeechRecognition =
+						window.SpeechRecognition || window.webkitSpeechRecognition;
+					console.log(
+						"Using:",
+						SpeechRecognition === window.webkitSpeechRecognition
+							? "webkitSpeechRecognition"
+							: "SpeechRecognition"
+					);
+
+					this.recognition = new SpeechRecognition();
+
+					this.recognition.continuous = true;
+					this.recognition.interimResults = true;
+					this.recognition.lang = "en-US";
+
+					this.recognition.onstart = () => {
+						console.log("Speech recognition started");
+					};
+
+					this.recognition.onresult = (event) => {
+						console.log(
+							"Speech result received, resultIndex:",
+							event.resultIndex,
+							" total results:",
+							event.results.length
+						);
+						this.handleResult(event);
+					};
+
+					this.recognition.onerror = (event) => {
+						console.error("Speech recognition error:", event.error);
+						console.error("Error details:", event);
+
+						switch (event.error) {
+							case "no-speech":
+								console.log("No speech detected, will retry...");
+								break;
+							case "audio-capture":
+								console.error("No microphone found or permission denied");
+								break;
+							case "not-allowed":
+								console.error("Microphone permission denied");
+								break;
+							case "network":
+								console.error("Network error occurred");
+								break;
+							case "aborted":
+								console.error("Speech recognition was aborted");
+								break;
+							default:
+								console.error("Unknown error:", event.error);
+						}
+					};
+
+					this.recognition.onend = () => {
+						console.log(
+							"Speech recognition ended, isListening:",
+							this.isListening
+						);
+						if (this.isListening) {
+							console.log("Restarting speech recognition...");
+							setTimeout(() => {
+								try {
+									this.recognition.start();
+								} catch (error) {
+									console.error("Error restarting recognition:", error);
+								}
+							}, 150);
+						}
+					};
+				}
+
+				handleResult(event) {
+					let interimCombined = "";
+
+					// Process only the results that changed in this event
+					for (let i = event.resultIndex; i < event.results.length; i++) {
+						const result = event.results[i];
+						const transcript = result[0].transcript.trim();
+
+						if (!transcript) continue;
+
+						if (result.isFinal) {
+							// Finalised chunk → commit once
+							this.makePermanent(transcript);
+						} else {
+							// Part of an ongoing phrase → add to interim display
+							interimCombined += transcript + " ";
+						}
+					}
+
+					// Trim & update live transcript with the whole in-progress phrase
+					this.updateLiveTranscript(interimCombined.trim());
+				}
+
+				makePermanent(text) {
+					const p = document.createElement("p");
+					p.className = "transcript-line";
+					p.textContent = text;
+					p.style.fontSize = config.fontSize;
+					p.style.fontFamily = config.fontFamily;
+					p.style.color = config.textColor;
+					this.transcriptContainer.insertBefore(p, this.liveTranscript);
+					window.scrollTo(0, document.body.scrollHeight);
+				}
+
+				updateLiveTranscript(text) {
+					this.liveTranscript.textContent = text;
+					this.liveTranscript.style.fontSize = config.fontSize;
+					this.liveTranscript.style.fontFamily = config.fontFamily;
+					this.liveTranscript.style.color = config.textColor;
+				}
+
+				startListening() {
+					console.log("Attempting to start listening...");
+					if (this.recognition) {
+						console.log("Recognition object exists, starting...");
+						this.isListening = true;
+						try {
+							this.recognition.start();
+						} catch (error) {
+							console.error("Error starting recognition:", error);
+						}
+					} else {
+						console.error("No recognition object available");
+					}
+				}
+			}
+
+			// start when page loads
+			document.addEventListener("DOMContentLoaded", () => {
+				new Hearsay();
+			});
+		</script>
+	</body>
+</html>
