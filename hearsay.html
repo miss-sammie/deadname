@@ -40,12 +40,33 @@
 		<script>
 			// CONFIG
 			const config = {
-				pauseTime: 500, // ms to wait before committing text
-				maxWords: 50, // max words before forcing commit
-				fontSize: "38px",
+				/* Available modes:
+				   feed – running feed (top-down or bottom-up)
+				   now  – only the current phrase, centered & scaled
+				   screensaver – phrases appear at random spots
+				*/
+				mode: "feed", // default
+				feedDirection: "btm",
+				nowMaxWidth: "95vw",
 				fontFamily: "'Comic Sans MS', sans-serif",
 				textColor: "#000",
 			};
+
+			function updateConfigFromHash() {
+				const hash = window.location.hash.slice(1).toLowerCase();
+				if (!hash) return;
+				if (hash === "now") {
+					config.mode = "now";
+				} else if (hash === "saver" || hash === "screensaver") {
+					config.mode = "screensaver";
+				} else if (hash === "feedtop" || hash === "top") {
+					config.mode = "feed";
+					config.feedDirection = "top";
+				} else if (hash === "feedbtm" || hash === "btm") {
+					config.mode = "feed";
+					config.feedDirection = "btm";
+				}
+			}
 
 			class Hearsay {
 				constructor() {
@@ -62,6 +83,8 @@
 				}
 
 				init() {
+					updateConfigFromHash();
+					this.applyModeStyles();
 					this.setupSpeechRecognition();
 					this.startListening();
 				}
@@ -151,6 +174,7 @@
 
 				handleResult(event) {
 					let interimCombined = "";
+					let committedFinal = false;
 
 					// Process only the results that changed in this event
 					for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -162,32 +186,114 @@
 						if (result.isFinal) {
 							// Finalised chunk → commit once
 							this.makePermanent(transcript);
+							committedFinal = true;
+							if (config.mode === "feed") {
+								this.liveTranscript.textContent = "";
+							}
 						} else {
 							// Part of an ongoing phrase → add to interim display
 							interimCombined += transcript + " ";
 						}
 					}
 
-					// Trim & update live transcript with the whole in-progress phrase
-					this.updateLiveTranscript(interimCombined.trim());
+					// Update live preview only if there is interim text to show
+					if (interimCombined.trim()) {
+						this.updateLiveTranscript(interimCombined.trim());
+					} else if (!committedFinal && config.mode === "feed") {
+						// ensure feed live line cleared when no interim
+						this.liveTranscript.textContent = "";
+					}
 				}
 
 				makePermanent(text) {
 					const p = document.createElement("p");
 					p.className = "transcript-line";
 					p.textContent = text;
-					p.style.fontSize = config.fontSize;
+					p.style.fontSize = "38px";
 					p.style.fontFamily = config.fontFamily;
 					p.style.color = config.textColor;
-					this.transcriptContainer.insertBefore(p, this.liveTranscript);
-					window.scrollTo(0, document.body.scrollHeight);
+
+					if (config.mode === "feed") {
+						if (config.feedDirection === "top") {
+							// Ensure live line stays on top; place new paragraph right after it
+							const refNode = this.liveTranscript.nextSibling;
+							this.transcriptContainer.insertBefore(p, refNode);
+							window.scrollTo(0, 0);
+						} else {
+							// bottom direction – insert before liveTranscript, then keep live at end
+							this.transcriptContainer.insertBefore(p, this.liveTranscript);
+							this.transcriptContainer.appendChild(this.liveTranscript);
+						}
+						window.scrollTo(0, document.body.scrollHeight);
+					} else if (config.mode === "now") {
+						this.liveTranscript.textContent = text;
+						this.adjustNowFontSize();
+					} else if (config.mode === "screensaver") {
+						const span = document.createElement("span");
+						span.textContent = text;
+						span.style.position = "absolute";
+						span.style.left = Math.floor(Math.random() * 90) + "vw";
+						span.style.top = Math.floor(Math.random() * 90) + "vh";
+						span.style.fontSize = Math.floor(20 + Math.random() * 60) + "px";
+						span.style.fontFamily = config.fontFamily;
+						span.style.color = config.textColor;
+						document.body.appendChild(span);
+					}
 				}
 
 				updateLiveTranscript(text) {
 					this.liveTranscript.textContent = text;
-					this.liveTranscript.style.fontSize = config.fontSize;
 					this.liveTranscript.style.fontFamily = config.fontFamily;
 					this.liveTranscript.style.color = config.textColor;
+
+					if (config.mode === "now") {
+						this.adjustNowFontSize();
+					} else if (config.mode === "feed") {
+						this.liveTranscript.style.fontSize = "38px";
+					}
+				}
+
+				adjustNowFontSize() {
+					// Binary-like search for the largest font that fits 90vw × 90vh
+					const maxHeight = window.innerHeight * 0.9;
+
+					let low = 48;
+					let high = 400;
+					let iterations = 0; // safety cap
+					let best = low;
+
+					while (low <= high && iterations < 20) {
+						iterations++;
+						const mid = Math.floor((low + high) / 2);
+						this.liveTranscript.style.fontSize = mid + "px";
+
+						// Allow layout to update for accurate measurement
+						const { height } = this.liveTranscript.getBoundingClientRect();
+						if (height <= maxHeight) {
+							best = mid;
+							low = mid + 2;
+						} else {
+							high = mid - 2;
+						}
+					}
+
+					this.liveTranscript.style.fontSize = best + "px";
+				}
+
+				applyModeStyles() {
+					if (config.mode === "now") {
+						document.body.style.display = "flex";
+						document.body.style.justifyContent = "center";
+						document.body.style.alignItems = "center";
+						document.body.style.height = "100vh";
+						document.body.style.textAlign = "center";
+						this.liveTranscript.style.maxWidth = config.nowMaxWidth;
+						this.liveTranscript.style.whiteSpace = "normal";
+						this.liveTranscript.style.wordBreak = "break-word";
+					} else if (config.mode === "screensaver") {
+						document.body.style.overflow = "hidden";
+						this.liveTranscript.style.display = "none"; // hide live line
+					}
 				}
 
 				startListening() {
